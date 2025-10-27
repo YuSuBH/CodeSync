@@ -14,6 +14,9 @@ const App = () => {
   const [copySuccess, setCopySuccess] = useState("");
   const [users, setUSers] = useState([]);
   const [typing, setTyping] = useState("");
+  const [output, setOutput] = useState("");
+  // eslint-disable-next-line no-unused-vars
+  const [version, setVersion] = useState("*");
 
   useEffect(() => {
     socket.on("userJoined", (users) => {
@@ -33,11 +36,16 @@ const App = () => {
       setLanguage(newLanguage);
     });
 
+    socket.on("codeResponse", (response) => {
+      setOutput(response.run.output);
+    });
+
     return () => {
       socket.off("userJoined");
       socket.off("codeUpdate");
       socket.off("userTyping");
       socket.off("languageUpdate");
+      socket.off("codeResponse");
     };
   }, []);
 
@@ -86,6 +94,10 @@ const App = () => {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
     socket.emit("languageChange", { roomId, language: newLanguage });
+  };
+
+  const runCode = () => {
+    socket.emit("compileCode", { code, roomId, language, version });
   };
 
   if (!joined) {
@@ -149,7 +161,7 @@ const App = () => {
 
       <div className="editor-wrapper">
         <Editor
-          height={"100%"}
+          height={"60%"}
           defaultLanguage={language}
           language={language}
           value={code}
@@ -159,6 +171,15 @@ const App = () => {
             minimap: { enabled: false },
             fontSize: 14,
           }}
+        />
+        <button className="run-btn" onClick={runCode}>
+          Execute
+        </button>
+        <textarea
+          className="output-response"
+          value={output}
+          readOnly
+          placeholder="Output will be shown here..."
         />
       </div>
     </div>
