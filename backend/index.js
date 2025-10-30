@@ -1,107 +1,67 @@
 import express from "express";
 import http from "http";
-import { Server } from "socket.io";
 import path from "path";
-import axios from "axios";
+import { config } from "./config/config.js";
+import { logger } from "./utils/logger.js";
+import { initializeSocket } from "./socket/socketManager.js";
+import { errorHandler } from "./middleware/errorHandler.js";
+import { roomService } from "./services/roomService.js";
 
 const app = express();
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-  },
-});
-
-const rooms = new Map();
-
-io.on("connection", (socket) => {
-  console.log("User Connected", socket.id);
-
-  let currentRoom = null;
-  let currentUser = null;
-
-  socket.on("join", ({ roomId, userName }) => {
-    if (currentRoom) {
-      socket.leave(currentRoom);
-      rooms.get(currentRoom).delete(currentUser);
-      io.to(currentRoom).emit("userJoined", Array.from(rooms.get(currentRoom)));
-    }
-
-    currentRoom = roomId;
-    currentUser = userName;
-
-    socket.join(roomId);
-
-    if (!rooms.has(roomId)) {
-      rooms.set(roomId, new Set());
-    }
-
-    rooms.get(roomId).add(userName);
-
-    io.to(roomId).emit("userJoined", Array.from(rooms.get(currentRoom)));
-  });
-
-  socket.on("codeChange", ({ roomId, code }) => {
-    socket.to(roomId).emit("codeUpdate", code);
-  });
-
-  socket.on("leaveRoom", () => {
-    if (currentUser && currentRoom) {
-      rooms.get(currentRoom).delete(currentUser);
-      io.to(currentRoom).emit("userJoined", Array.from(rooms.get(currentRoom)));
-
-      socket.leave(currentRoom);
-
-      currentRoom = null;
-      currentUser = null;
-    }
-  });
-
-  socket.on("typing", ({ roomId, userName }) => {
-    socket.to(roomId).emit("userTyping", userName);
-  });
-
-  socket.on("languageChange", ({ roomId, language }) => {
-    io.to(roomId).emit("languageUpdate", language);
-  });
-
-  socket.on("compileCode", async ({ code, roomId, language, version }) => {
-    if (rooms.has(roomId)) {
-      const room = rooms.get(roomId);
-      const response = await axios.post(
-        "https://emkc.org/api/v2/piston/execute",
-        {
-          language,
-          version,
-          files: [{ content: code }],
-        }
-      );
-
-      room.output = response.data.run.output;
-      io.to(roomId).emit("codeResponse", response.data);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    if (currentUser && currentRoom) {
-      rooms.get(currentRoom).delete(currentUser);
-      io.to(currentRoom).emit("userJoined", Array.from(rooms.get(currentRoom)));
-    }
-    console.log("user disconnected");
-  });
-});
-
-const PORT = process.env.PORT || 5000;
+const io = initializeSocket(server);
 
 const __dirname = path.resolve();
 app.use(express.static(path.join(__dirname, "/frontend/dist")));
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    rooms: roomService.getRoomCount(),
+  });
+});
 
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "frontend", "dist", "index.html"));
 });
 
-server.listen(PORT, () => {
-  console.log(`server has started on ${PORT}`);
+app.use(errorHandler);
+
+setInterval(() => {
+  roomService.cleanupOldRooms();
+}, 60 * 60 * 1000);
+
+const gracefulShutdown = () => {
+  logger.info("Shutting down gracefully...");
+
+  io.close(() => {
+    logger.info("Socket.io connections closed");
+  });
+
+  server.close(() => {
+    logger.info("HTTP server closed");
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    logger.error("Forced shutdown");
+    process.exit(1);
+  }, 10000);
+};
+
+process.on("SIGTERM", gracefulShutdown);
+process.on("SIGINT", gracefulShutdown);
+
+server.listen(config.port, () => {
+  logger.info(`Server started on port ${config.port}`, {
+    nodeEnv: config.nodeEnv,
+    port: config.port,
+  });
 });
