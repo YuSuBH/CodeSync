@@ -1,6 +1,7 @@
 import { useState } from "react";
+import ConnectionStatus from "./ConnectionStatus";
 
-const JoinRoom = ({ onJoin }) => {
+const JoinRoom = ({ onJoin, isConnected }) => {
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
 
@@ -14,9 +15,12 @@ const JoinRoom = ({ onJoin }) => {
   return (
     <div className="flex justify-center items-center h-screen bg-gray-100">
       <form
-        className="bg-white p-8 rounded-lg shadow-md text-center w-[300px]"
+        className="bg-white p-8 rounded-lg shadow-md text-center w-[300px] relative"
         onSubmit={handleSubmit}
       >
+        <div className="absolute top-4 right-4">
+          <ConnectionStatus isConnected={isConnected} />
+        </div>
         <h1 className="mb-6 text-gray-800 text-2xl font-bold">
           Join Code Room
         </h1>
@@ -38,9 +42,14 @@ const JoinRoom = ({ onJoin }) => {
         />
         <button
           type="submit"
-          className="w-full p-3 bg-green-500 text-white border-none rounded text-base cursor-pointer hover:bg-green-600 transition-colors"
+          disabled={!isConnected}
+          className={`w-full p-3 text-white border-none rounded text-base transition-colors ${
+            isConnected
+              ? "bg-green-500 hover:bg-green-600 cursor-pointer"
+              : "bg-gray-400 cursor-not-allowed"
+          }`}
         >
-          Join Room
+          {isConnected ? "Join Room" : "Connecting..."}
         </button>
       </form>
     </div>

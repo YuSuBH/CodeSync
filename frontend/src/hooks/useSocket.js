@@ -40,5 +40,5 @@ export const useSocket = () => {
     };
   }, []);
 
-  return socketRef.current;
+  return { socket: socketRef.current, isConnected };
 };

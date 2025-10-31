@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { LANGUAGES } from "../constants/languages";
+import UserAvatar from "./UserAvatar";
 
 const Sidebar = ({
   roomId,
@@ -12,7 +13,7 @@ const Sidebar = ({
   copySuccess,
 }) => {
   return (
-    <div className="w-64 bg-slate-700 text-white p-6 flex flex-col overflow-y-auto">
+    <div className="h-full bg-slate-700 text-white p-6 flex flex-col overflow-y-auto">
       <div className="flex flex-col items-center mb-6">
         <h2 className="text-lg font-semibold mb-3 text-center break-all">
           Room: {roomId}
@@ -38,10 +39,10 @@ const Sidebar = ({
           users.map((userName, index) => (
             <li
               key={`${userName}-${index}`}
-              className="p-2 text-sm bg-gray-600 rounded truncate"
+              className="p-3 bg-gray-600 rounded hover:bg-gray-500 transition-colors"
               title={userName}
             >
-              {userName}
+              <UserAvatar username={userName} size="md" showName={true} />
             </li>
           ))
         ) : (

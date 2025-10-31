@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import "./App.css";
+import { Toaster, toast } from "react-hot-toast";
 import { useSocket } from "./hooks/useSocket";
 import { useRoom } from "./hooks/useRoom";
 import { useBeforeUnload } from "./hooks/useBeforeUnload";
@@ -17,8 +18,40 @@ const App = () => {
   const [typing, setTyping] = useState("");
   const [output, setOutput] = useState("");
   const [isExecuting, setIsExecuting] = useState(false);
+  const previousUsersRef = useRef([]);
 
-  const socket = useSocket();
+  const { socket, isConnected } = useSocket();
+
+  // Track user changes for toast notifications
+  useEffect(() => {
+    if (users.length === 0) return;
+
+    const previousUsers = previousUsersRef.current;
+
+    // Find new users
+    const newUsers = users.filter((user) => !previousUsers.includes(user));
+    const leftUsers = previousUsers.filter((user) => !users.includes(user));
+
+    newUsers.forEach((user) => {
+      if (user !== userName) {
+        toast.success(`${user} joined the room`, {
+          icon: "👋",
+          duration: 3000,
+        });
+      }
+    });
+
+    leftUsers.forEach((user) => {
+      if (user !== userName) {
+        toast.error(`${user} left the room`, {
+          icon: "👋",
+          duration: 3000,
+        });
+      }
+    });
+
+    previousUsersRef.current = users;
+  }, [users, userName]);
 
   const roomHandlers = {
     onUsersUpdate: useCallback((users) => {
@@ -32,6 +65,10 @@ const App = () => {
     onLanguageUpdate: useCallback((newLanguage) => {
       console.log("Language updated:", newLanguage);
       setLanguage(newLanguage);
+      toast(`Language changed to ${newLanguage}`, {
+        icon: "🔧",
+        duration: 2000,
+      });
     }, []),
     onTyping: useCallback((message) => setTyping(message), []),
     onCodeResponse: useCallback((response) => {
@@ -40,11 +77,25 @@ const App = () => {
         response?.run?.output || response?.run?.stderr || "No output";
       setOutput(output);
       setIsExecuting(false);
+
+      if (response?.run?.stderr) {
+        toast.error("Execution completed with errors", {
+          duration: 2000,
+        });
+      } else {
+        toast.success("Code executed successfully", {
+          icon: "✅",
+          duration: 2000,
+        });
+      }
     }, []),
     onError: useCallback((error) => {
       console.error("Socket error:", error);
       setOutput(`Error: ${error.message || "An error occurred"}`);
       setIsExecuting(false);
+      toast.error(error.message || "An error occurred", {
+        duration: 4000,
+      });
     }, []),
   };
 
@@ -65,17 +116,25 @@ const App = () => {
 
       if (!socket) {
         console.error("Socket not initialized");
-        alert("Connection not ready. Please wait and try again.");
+        toast.error("Connection not ready. Please wait and try again.");
         return;
       }
 
       if (!socket.connected) {
         console.warn("Socket not connected yet, waiting...");
-        alert("Connecting to server. Please wait a moment and try again.");
+        toast.error(
+          "Connecting to server. Please wait a moment and try again."
+        );
         return;
       }
 
       const success = socketJoinRoom(newRoomId, newUserName);
+      if (success) {
+        toast.success(`Joined room: ${newRoomId}`, {
+          icon: "🚀",
+          duration: 3000,
+        });
+      }
       console.log("Join success:", success);
       if (success) {
         setRoomId(newRoomId);
@@ -135,23 +194,32 @@ const App = () => {
   useBeforeUnload(socketLeaveRoom);
 
   if (!joined) {
-    return <JoinRoom onJoin={handleJoin} />;
+    return (
+      <>
+        <Toaster position="top-right" />
+        <JoinRoom onJoin={handleJoin} isConnected={isConnected} />
+      </>
+    );
   }
 
   return (
-    <CodeRoom
-      roomId={roomId}
-      users={users}
-      language={language}
-      code={code}
-      output={output}
-      typingIndicator={typing}
-      isExecuting={isExecuting}
-      onCodeChange={handleCodeChange}
-      onLanguageChange={handleLanguageChange}
-      onExecute={handleExecute}
-      onLeaveRoom={handleLeaveRoom}
-    />
+    <>
+      <Toaster position="top-right" />
+      <CodeRoom
+        roomId={roomId}
+        users={users}
+        language={language}
+        code={code}
+        output={output}
+        typingIndicator={typing}
+        isExecuting={isExecuting}
+        isConnected={isConnected}
+        onCodeChange={handleCodeChange}
+        onLanguageChange={handleLanguageChange}
+        onExecute={handleExecute}
+        onLeaveRoom={handleLeaveRoom}
+      />
+    </>
   );
 };
 
