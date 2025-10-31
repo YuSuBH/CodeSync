@@ -22,13 +22,11 @@ const App = () => {
 
   const { socket, isConnected } = useSocket();
 
-  // Track user changes for toast notifications
   useEffect(() => {
     if (users.length === 0) return;
 
     const previousUsers = previousUsersRef.current;
 
-    // Find new users
     const newUsers = users.filter((user) => !previousUsers.includes(user));
     const leftUsers = previousUsers.filter((user) => !users.includes(user));
 
@@ -185,7 +183,6 @@ const App = () => {
     setOutput("Executing...");
     compileCode(code, roomId, language);
 
-    // Timeout fallback in case response never comes
     setTimeout(() => {
       setIsExecuting(false);
     }, 30000); // 30 seconds timeout

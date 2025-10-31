@@ -1,4 +1,3 @@
-// Generate consistent colors for users
 const USER_COLORS = [
   { bg: "bg-blue-500", text: "text-blue-500", hex: "#3B82F6" },
   { bg: "bg-green-500", text: "text-green-500", hex: "#10B981" },
@@ -12,13 +11,12 @@ const USER_COLORS = [
   { bg: "bg-cyan-500", text: "text-cyan-500", hex: "#06B6D4" },
 ];
 
-// Hash function to consistently assign colors to usernames
 const hashString = (str) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash & hash;
   }
   return Math.abs(hash);
 };
