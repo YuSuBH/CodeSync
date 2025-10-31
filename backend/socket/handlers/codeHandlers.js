@@ -9,6 +9,13 @@ export const registerCodeHandlers = (io, socket) => {
       const validRoomId = validators.validateRoomId(roomId);
       const validCode = validators.validateCode(code);
 
+      // Update room state
+      const room = roomService.getRoom(validRoomId);
+      if (room) {
+        room.code = validCode;
+      }
+
+      // Broadcast to other users in the room
       socket.to(validRoomId).emit("codeUpdate", validCode);
 
       logger.debug(`Code changed in room`, {
@@ -34,6 +41,13 @@ export const registerCodeHandlers = (io, socket) => {
       const validRoomId = validators.validateRoomId(roomId);
       const validLanguage = validators.validateLanguage(language);
 
+      // Update room state
+      const room = roomService.getRoom(validRoomId);
+      if (room) {
+        room.language = validLanguage;
+      }
+
+      // Broadcast to all users in the room
       io.to(validRoomId).emit("languageUpdate", validLanguage);
 
       logger.info(`Language changed in room`, {

@@ -11,8 +11,14 @@ export const initializeSocket = (server) => {
     pingInterval: 25000,
   });
 
+  logger.info("Socket.IO server initialized", { cors: config.cors });
+
   io.on("connection", (socket) => {
-    logger.info(`User connected`, { socketId: socket.id });
+    logger.info(`User connected`, {
+      socketId: socket.id,
+      transport: socket.conn.transport.name,
+      remoteAddress: socket.handshake.address,
+    });
 
     try {
       const cleanupRoom = registerRoomHandlers(io, socket);
@@ -25,17 +31,26 @@ export const initializeSocket = (server) => {
         });
       });
 
-      socket.on("disconnect", () => {
+      socket.on("disconnect", (reason) => {
         cleanupRoom();
-        logger.info(`User disconnected`, { socketId: socket.id });
+        logger.info(`User disconnected`, { socketId: socket.id, reason });
       });
     } catch (error) {
       logger.error(`Error setting up socket handlers`, {
         socketId: socket.id,
         error: error.message,
+        stack: error.stack,
       });
       socket.disconnect(true);
     }
+  });
+
+  io.engine.on("connection_error", (err) => {
+    logger.error("Connection error", {
+      code: err.code,
+      message: err.message,
+      context: err.context,
+    });
   });
 
   return io;

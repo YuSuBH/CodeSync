@@ -21,14 +21,29 @@ export const registerRoomHandlers = (io, socket) => {
       currentUser = validUserName;
 
       socket.join(validRoomId);
+
+      // Get the room to access existing state
+      const room = roomService.getRoom(validRoomId);
+
+      // Add user and get updated user list
       const users = roomService.addUserToRoom(validRoomId, validUserName);
 
+      // Send updated user list to all users in the room
       io.to(validRoomId).emit("userJoined", users);
+
+      // If room has existing state, send it to the newly joined user
+      if (room && room.code) {
+        socket.emit("codeUpdate", room.code);
+      }
+      if (room && room.language && room.language !== "javascript") {
+        socket.emit("languageUpdate", room.language);
+      }
 
       logger.info(`User joined room`, {
         socketId: socket.id,
         userName: validUserName,
         roomId: validRoomId,
+        usersCount: users.length,
       });
     } catch (error) {
       logger.error(`Error joining room`, {

@@ -1,188 +1,124 @@
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import "./App.css";
-import io from "socket.io-client";
-import Editor from "@monaco-editor/react";
-
-const socket = io("http://localhost:5000");
+import { useSocket } from "./hooks/useSocket";
+import { useRoom } from "./hooks/useRoom";
+import { useBeforeUnload } from "./hooks/useBeforeUnload";
+import JoinRoom from "./components/JoinRoom";
+import CodeRoom from "./components/CodeRoom";
+import { DEFAULT_CODE, DEFAULT_LANGUAGE } from "./constants/languages";
 
 const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
-  const [language, setLanguage] = useState("javascript");
-  const [code, setCode] = useState("// start code here");
-  const [copySuccess, setCopySuccess] = useState("");
-  const [users, setUSers] = useState([]);
+  const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
+  const [code, setCode] = useState(DEFAULT_CODE);
+  const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState("");
   const [output, setOutput] = useState("");
-  // eslint-disable-next-line no-unused-vars
-  const [version, setVersion] = useState("*");
 
-  useEffect(() => {
-    socket.on("userJoined", (users) => {
-      setUSers(users);
-    });
+  const socket = useSocket();
 
-    socket.on("codeUpdate", (newCode) => {
+  const roomHandlers = {
+    onUsersUpdate: useCallback((users) => {
+      console.log("Users updated:", users);
+      setUsers(users);
+    }, []),
+    onCodeUpdate: useCallback((newCode) => {
+      console.log("Code updated:", newCode.substring(0, 50));
       setCode(newCode);
-    });
-
-    socket.on("userTyping", (user) => {
-      setTyping(`${user.slice(0, 8)}... is typing`);
-      setTimeout(() => setTyping(""), 2000);
-    });
-
-    socket.on("languageUpdate", (newLanguage) => {
+    }, []),
+    onLanguageUpdate: useCallback((newLanguage) => {
+      console.log("Language updated:", newLanguage);
       setLanguage(newLanguage);
-    });
-
-    socket.on("codeResponse", (response) => {
-      setOutput(response.run.output);
-    });
-
-    return () => {
-      socket.off("userJoined");
-      socket.off("codeUpdate");
-      socket.off("userTyping");
-      socket.off("languageUpdate");
-      socket.off("codeResponse");
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      socket.emit("leaveRoom");
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, []);
-
-  const joinRoom = () => {
-    if (roomId && userName) {
-      socket.emit("join", { roomId, userName });
-      setJoined(true);
-    }
+    }, []),
+    onTyping: useCallback((message) => setTyping(message), []),
+    onCodeResponse: useCallback((response) => {
+      setOutput(response?.run?.output || "No output");
+    }, []),
+    onError: useCallback((error) => {
+      console.error("Socket error:", error);
+      setOutput(`Error: ${error.message || "An error occurred"}`);
+    }, []),
   };
 
-  const leaveRoom = () => {
-    socket.emit("leaveRoom");
+  const {
+    joinRoom: socketJoinRoom,
+    leaveRoom: socketLeaveRoom,
+    emitCodeChange,
+    emitTyping,
+    emitLanguageChange,
+    compileCode,
+  } = useRoom(socket, roomHandlers);
+
+  const handleJoin = useCallback(
+    (newRoomId, newUserName) => {
+      console.log("Attempting to join room:", newRoomId, "as", newUserName);
+      console.log("Socket status:", socket ? "connected" : "not connected");
+      const success = socketJoinRoom(newRoomId, newUserName);
+      console.log("Join success:", success);
+      if (success) {
+        setRoomId(newRoomId);
+        setUserName(newUserName);
+        setJoined(true);
+      }
+    },
+    [socketJoinRoom, socket]
+  );
+
+  const handleLeaveRoom = useCallback(() => {
+    socketLeaveRoom();
     setJoined(false);
     setRoomId("");
     setUserName("");
-    setCode("// start code here");
-    setLanguage("javascript");
-  };
+    setCode(DEFAULT_CODE);
+    setLanguage(DEFAULT_LANGUAGE);
+    setUsers([]);
+    setTyping("");
+    setOutput("");
+  }, [socketLeaveRoom]);
 
-  const copyRoomId = () => {
-    navigator.clipboard.writeText(roomId);
-    setCopySuccess("Copied!");
-    setTimeout(() => setCopySuccess(""), 2000);
-  };
+  const handleCodeChange = useCallback(
+    (newCode) => {
+      setCode(newCode);
+      console.log("Emitting code change to room:", roomId);
+      emitCodeChange(roomId, newCode);
+      emitTyping(roomId, userName);
+    },
+    [roomId, userName, emitCodeChange, emitTyping]
+  );
 
-  const handleCodeChange = (newCode) => {
-    setCode(newCode);
+  const handleLanguageChange = useCallback(
+    (newLanguage) => {
+      setLanguage(newLanguage);
+      emitLanguageChange(roomId, newLanguage);
+    },
+    [roomId, emitLanguageChange]
+  );
 
-    socket.emit("codeChange", { roomId, code: newCode });
-    socket.emit("typing", { roomId, userName });
-  };
+  const handleExecute = useCallback(() => {
+    compileCode(code, roomId, language);
+  }, [code, roomId, language, compileCode]);
 
-  const handleLanguageChange = (e) => {
-    const newLanguage = e.target.value;
-    setLanguage(newLanguage);
-    socket.emit("languageChange", { roomId, language: newLanguage });
-  };
-
-  const runCode = () => {
-    socket.emit("compileCode", { code, roomId, language, version });
-  };
+  useBeforeUnload(socketLeaveRoom);
 
   if (!joined) {
-    return (
-      <div className="join-container">
-        <div className="join-form">
-          <h1>Join Code Room</h1>
-          <input
-            type="text"
-            placeholder="Room Id"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Your Name"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-          />
-          <button onClick={joinRoom}>Join Room</button>
-        </div>
-      </div>
-    );
+    return <JoinRoom onJoin={handleJoin} />;
   }
 
   return (
-    <div className="editor-container">
-      <div className="sidebar">
-        <div className="room-info">
-          <h2>Code Room: {roomId}</h2>
-          <button onClick={copyRoomId} className="copy-button">
-            Copy Id
-          </button>
-          {copySuccess && <span className="copy-success">{copySuccess}</span>}
-        </div>
-
-        <h3>Users in Room:</h3>
-        <ul>
-          {users.map((userName, index) => (
-            <li key={index}>{userName.slice(0, 8)}...</li>
-          ))}
-        </ul>
-
-        <p className="typing-indicator">{typing}</p>
-
-        <select
-          className="language-selector"
-          value={language}
-          onChange={handleLanguageChange}
-        >
-          <option value="javascript">Javascript</option>
-          <option value="python">Python</option>
-          <option value="cpp">C++</option>
-          <option value="java">Java</option>
-        </select>
-
-        <button className="leave-button" onClick={leaveRoom}>
-          Leave Room
-        </button>
-      </div>
-
-      <div className="editor-wrapper">
-        <Editor
-          height={"60%"}
-          defaultLanguage={language}
-          language={language}
-          value={code}
-          onChange={handleCodeChange}
-          theme="vs-dark"
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-          }}
-        />
-        <button className="run-btn" onClick={runCode}>
-          Execute
-        </button>
-        <textarea
-          className="output-response"
-          value={output}
-          readOnly
-          placeholder="Output will be shown here..."
-        />
-      </div>
-    </div>
+    <CodeRoom
+      roomId={roomId}
+      users={users}
+      language={language}
+      code={code}
+      output={output}
+      typingIndicator={typing}
+      onCodeChange={handleCodeChange}
+      onLanguageChange={handleLanguageChange}
+      onExecute={handleExecute}
+      onLeaveRoom={handleLeaveRoom}
+    />
   );
 };
 
