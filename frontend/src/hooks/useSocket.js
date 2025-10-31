@@ -1,33 +1,41 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import { SOCKET_URL } from "../constants/socket";
 
 export const useSocket = () => {
   const socketRef = useRef(null);
-
-  if (!socketRef.current) {
-    console.log("Creating new socket connection to", SOCKET_URL);
-    socketRef.current = io(SOCKET_URL);
-
-    socketRef.current.on("connect", () => {
-      console.log("Socket connected:", socketRef.current.id);
-    });
-
-    socketRef.current.on("disconnect", () => {
-      console.log("Socket disconnected");
-    });
-
-    socketRef.current.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
-  }
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socket = socketRef.current;
+    if (!socketRef.current) {
+      console.log("Creating new socket connection to", SOCKET_URL);
+      socketRef.current = io(SOCKET_URL, {
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      socketRef.current.on("connect", () => {
+        console.log("Socket connected:", socketRef.current.id);
+        setIsConnected(true);
+      });
+
+      socketRef.current.on("disconnect", () => {
+        console.log("Socket disconnected");
+        setIsConnected(false);
+      });
+
+      socketRef.current.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+        setIsConnected(false);
+      });
+    }
 
     return () => {
-      if (socket) {
-        socket.disconnect();
+      if (socketRef.current) {
+        console.log("Cleaning up socket connection");
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
     };
   }, []);

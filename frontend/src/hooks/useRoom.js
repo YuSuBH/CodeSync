@@ -22,12 +22,17 @@ export const useRoom = (socket, handlers) => {
     console.log("useRoom: Setting up socket listeners");
 
     const handleUserJoined = (users) => {
-      console.log("useRoom: Received userJoined event", users);
+      console.log("useRoom: Received userJoined event", {
+        users,
+        count: users?.length,
+      });
       onUsersUpdate?.(users);
     };
 
     const handleCodeUpdate = (newCode) => {
-      console.log("useRoom: Received codeUpdate event");
+      console.log("useRoom: Received codeUpdate event", {
+        codeLength: newCode?.length,
+      });
       onCodeUpdate?.(newCode);
     };
 

@@ -16,6 +16,7 @@ const App = () => {
   const [users, setUsers] = useState([]);
   const [typing, setTyping] = useState("");
   const [output, setOutput] = useState("");
+  const [isExecuting, setIsExecuting] = useState(false);
 
   const socket = useSocket();
 
@@ -34,11 +35,16 @@ const App = () => {
     }, []),
     onTyping: useCallback((message) => setTyping(message), []),
     onCodeResponse: useCallback((response) => {
-      setOutput(response?.run?.output || "No output");
+      console.log("Code response received:", response);
+      const output =
+        response?.run?.output || response?.run?.stderr || "No output";
+      setOutput(output);
+      setIsExecuting(false);
     }, []),
     onError: useCallback((error) => {
       console.error("Socket error:", error);
       setOutput(`Error: ${error.message || "An error occurred"}`);
+      setIsExecuting(false);
     }, []),
   };
 
@@ -54,7 +60,21 @@ const App = () => {
   const handleJoin = useCallback(
     (newRoomId, newUserName) => {
       console.log("Attempting to join room:", newRoomId, "as", newUserName);
-      console.log("Socket status:", socket ? "connected" : "not connected");
+      console.log("Socket status:", socket ? "Socket exists" : "No socket");
+      console.log("Socket connected:", socket?.connected);
+
+      if (!socket) {
+        console.error("Socket not initialized");
+        alert("Connection not ready. Please wait and try again.");
+        return;
+      }
+
+      if (!socket.connected) {
+        console.warn("Socket not connected yet, waiting...");
+        alert("Connecting to server. Please wait a moment and try again.");
+        return;
+      }
+
       const success = socketJoinRoom(newRoomId, newUserName);
       console.log("Join success:", success);
       if (success) {
@@ -97,7 +117,19 @@ const App = () => {
   );
 
   const handleExecute = useCallback(() => {
+    console.log("Execute button clicked", {
+      roomId,
+      language,
+      codeLength: code.length,
+    });
+    setIsExecuting(true);
+    setOutput("Executing...");
     compileCode(code, roomId, language);
+
+    // Timeout fallback in case response never comes
+    setTimeout(() => {
+      setIsExecuting(false);
+    }, 30000); // 30 seconds timeout
   }, [code, roomId, language, compileCode]);
 
   useBeforeUnload(socketLeaveRoom);
@@ -114,6 +146,7 @@ const App = () => {
       code={code}
       output={output}
       typingIndicator={typing}
+      isExecuting={isExecuting}
       onCodeChange={handleCodeChange}
       onLanguageChange={handleLanguageChange}
       onExecute={handleExecute}

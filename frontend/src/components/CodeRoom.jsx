@@ -10,6 +10,7 @@ const CodeRoom = ({
   code,
   output,
   typingIndicator,
+  isExecuting,
   onCodeChange,
   onLanguageChange,
   onExecute,
@@ -39,7 +40,7 @@ const CodeRoom = ({
   );
 
   return (
-    <div className="editor-container">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar
         roomId={roomId}
         users={users}
@@ -56,6 +57,7 @@ const CodeRoom = ({
         onChange={onCodeChange}
         onExecute={onExecute}
         output={output}
+        isExecuting={isExecuting}
       />
     </div>
   );

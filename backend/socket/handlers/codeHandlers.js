@@ -105,13 +105,16 @@ export const registerCodeHandlers = (io, socket) => {
         error: error.message,
       });
 
-      socket.emit("codeResponse", {
+      const errorResponse = {
         run: {
           output: `Error: ${error.message}`,
           code: 1,
           stderr: error.message,
         },
-      });
+      };
+
+      // Emit to all users in the room, not just the requester
+      io.to(roomId).emit("codeResponse", errorResponse);
     }
   };
 
