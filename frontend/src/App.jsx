@@ -4,6 +4,7 @@ import { Toaster, toast } from "react-hot-toast";
 import { useSocket } from "./hooks/useSocket";
 import { useRoom } from "./hooks/useRoom";
 import { useBeforeUnload } from "./hooks/useBeforeUnload";
+import { useRemoteCursors } from "./hooks/useRemoteCursors";
 import JoinRoom from "./components/JoinRoom";
 import CodeRoom from "./components/CodeRoom";
 import { DEFAULT_CODE, DEFAULT_LANGUAGE } from "./constants/languages";
@@ -19,8 +20,21 @@ const App = () => {
   const [output, setOutput] = useState("");
   const [isExecuting, setIsExecuting] = useState(false);
   const previousUsersRef = useRef([]);
+  const userNameRef = useRef("");
+
+  useEffect(() => {
+    userNameRef.current = userName;
+  }, [userName]);
 
   const { socket, isConnected } = useSocket();
+  const {
+    remoteCursors,
+    remoteSelections,
+    updateCursor,
+    updateSelection,
+    removeUser,
+    clearAll,
+  } = useRemoteCursors();
 
   useEffect(() => {
     if (users.length === 0) return;
@@ -45,11 +59,12 @@ const App = () => {
           icon: "👋",
           duration: 3000,
         });
+        removeUser(user);
       }
     });
 
     previousUsersRef.current = users;
-  }, [users, userName]);
+  }, [users, userName, removeUser]);
 
   const roomHandlers = {
     onUsersUpdate: useCallback((users) => {
@@ -95,6 +110,36 @@ const App = () => {
         duration: 4000,
       });
     }, []),
+    onCursorUpdate: useCallback(
+      (receivedUserName, position) => {
+        if (receivedUserName !== userNameRef.current) {
+          console.log(
+            `[Cursor] Received from: "${receivedUserName}", Current user: "${userNameRef.current}"`
+          );
+          updateCursor(receivedUserName, position);
+        } else {
+          console.log(
+            `[Cursor] FILTERED OUT self update: "${receivedUserName}"`
+          );
+        }
+      },
+      [updateCursor]
+    ),
+    onSelectionUpdate: useCallback(
+      (receivedUserName, selection) => {
+        if (receivedUserName !== userNameRef.current) {
+          console.log(
+            `[Selection] Received from: "${receivedUserName}", Current user: "${userNameRef.current}"`
+          );
+          updateSelection(receivedUserName, selection);
+        } else {
+          console.log(
+            `[Selection] FILTERED OUT self update: "${receivedUserName}"`
+          );
+        }
+      },
+      [updateSelection]
+    ),
   };
 
   const {
@@ -104,6 +149,8 @@ const App = () => {
     emitTyping,
     emitLanguageChange,
     compileCode,
+    emitCursorChange,
+    emitSelectionChange,
   } = useRoom(socket, roomHandlers);
 
   const handleJoin = useCallback(
@@ -153,7 +200,8 @@ const App = () => {
     setUsers([]);
     setTyping("");
     setOutput("");
-  }, [socketLeaveRoom]);
+    clearAll();
+  }, [socketLeaveRoom, clearAll]);
 
   const handleCodeChange = useCallback(
     (newCode) => {
@@ -185,7 +233,7 @@ const App = () => {
 
     setTimeout(() => {
       setIsExecuting(false);
-    }, 30000); // 30 seconds timeout
+    }, 30000);
   }, [code, roomId, language, compileCode]);
 
   useBeforeUnload(socketLeaveRoom);
@@ -204,6 +252,7 @@ const App = () => {
       <Toaster position="top-right" />
       <CodeRoom
         roomId={roomId}
+        userName={userName}
         users={users}
         language={language}
         code={code}
@@ -211,10 +260,14 @@ const App = () => {
         typingIndicator={typing}
         isExecuting={isExecuting}
         isConnected={isConnected}
+        remoteCursors={remoteCursors}
+        remoteSelections={remoteSelections}
         onCodeChange={handleCodeChange}
         onLanguageChange={handleLanguageChange}
         onExecute={handleExecute}
         onLeaveRoom={handleLeaveRoom}
+        onCursorChange={emitCursorChange}
+        onSelectionChange={emitSelectionChange}
       />
     </>
   );

@@ -11,6 +11,8 @@ export const useRoom = (socket, handlers) => {
     onTyping,
     onCodeResponse,
     onError,
+    onCursorUpdate,
+    onSelectionUpdate,
   } = handlers;
 
   useEffect(() => {
@@ -60,11 +62,21 @@ export const useRoom = (socket, handlers) => {
       onError?.(error);
     };
 
+    const handleCursorUpdate = ({ userName, position }) => {
+      onCursorUpdate?.(userName, position);
+    };
+
+    const handleSelectionUpdate = ({ userName, selection }) => {
+      onSelectionUpdate?.(userName, selection);
+    };
+
     socket.on(SOCKET_EVENTS.USER_JOINED, handleUserJoined);
     socket.on(SOCKET_EVENTS.CODE_UPDATE, handleCodeUpdate);
     socket.on(SOCKET_EVENTS.USER_TYPING, handleUserTyping);
     socket.on(SOCKET_EVENTS.LANGUAGE_UPDATE, handleLanguageUpdate);
     socket.on(SOCKET_EVENTS.CODE_RESPONSE, handleCodeResponse);
+    socket.on(SOCKET_EVENTS.CURSOR_UPDATE, handleCursorUpdate);
+    socket.on(SOCKET_EVENTS.SELECTION_UPDATE, handleSelectionUpdate);
     socket.on(SOCKET_EVENTS.ERROR, handleError);
 
     return () => {
@@ -73,6 +85,8 @@ export const useRoom = (socket, handlers) => {
       socket.off(SOCKET_EVENTS.USER_TYPING, handleUserTyping);
       socket.off(SOCKET_EVENTS.LANGUAGE_UPDATE, handleLanguageUpdate);
       socket.off(SOCKET_EVENTS.CODE_RESPONSE, handleCodeResponse);
+      socket.off(SOCKET_EVENTS.CURSOR_UPDATE, handleCursorUpdate);
+      socket.off(SOCKET_EVENTS.SELECTION_UPDATE, handleSelectionUpdate);
       socket.off(SOCKET_EVENTS.ERROR, handleError);
 
       if (typingTimeoutRef.current) {
@@ -86,6 +100,8 @@ export const useRoom = (socket, handlers) => {
     onLanguageUpdate,
     onTyping,
     onCodeResponse,
+    onCursorUpdate,
+    onSelectionUpdate,
     onError,
   ]);
 
@@ -155,6 +171,32 @@ export const useRoom = (socket, handlers) => {
     [socket]
   );
 
+  const emitCursorChange = useCallback(
+    (roomId, userName, position) => {
+      if (socket) {
+        socket.emit(SOCKET_EVENTS.CURSOR_CHANGE, {
+          roomId,
+          userName,
+          position,
+        });
+      }
+    },
+    [socket]
+  );
+
+  const emitSelectionChange = useCallback(
+    (roomId, userName, selection) => {
+      if (socket) {
+        socket.emit(SOCKET_EVENTS.SELECTION_CHANGE, {
+          roomId,
+          userName,
+          selection,
+        });
+      }
+    },
+    [socket]
+  );
+
   return {
     joinRoom,
     leaveRoom,
@@ -162,5 +204,7 @@ export const useRoom = (socket, handlers) => {
     emitTyping,
     emitLanguageChange,
     compileCode,
+    emitCursorChange,
+    emitSelectionChange,
   };
 };

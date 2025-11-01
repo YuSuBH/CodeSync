@@ -7,6 +7,7 @@ import { COPY_SUCCESS_TIMEOUT } from "../constants/socket";
 
 const CodeRoom = ({
   roomId,
+  userName,
   users,
   language,
   code,
@@ -14,10 +15,14 @@ const CodeRoom = ({
   typingIndicator,
   isExecuting,
   isConnected,
+  remoteCursors,
+  remoteSelections,
   onCodeChange,
   onLanguageChange,
   onExecute,
   onLeaveRoom,
+  onCursorChange,
+  onSelectionChange,
 }) => {
   const [copySuccess, setCopySuccess] = useState("");
 
@@ -70,6 +75,12 @@ const CodeRoom = ({
             onExecute={onExecute}
             output={output}
             isExecuting={isExecuting}
+            roomId={roomId}
+            userName={userName}
+            remoteCursors={remoteCursors}
+            remoteSelections={remoteSelections}
+            onCursorChange={onCursorChange}
+            onSelectionChange={onSelectionChange}
           />
         </Panel>
       </PanelGroup>

@@ -9,13 +9,11 @@ export const registerCodeHandlers = (io, socket) => {
       const validRoomId = validators.validateRoomId(roomId);
       const validCode = validators.validateCode(code);
 
-      // Update room state
       const room = roomService.getRoom(validRoomId);
       if (room) {
         room.code = validCode;
       }
 
-      // Broadcast to other users in the room
       socket.to(validRoomId).emit("codeUpdate", validCode);
 
       logger.debug(`Code changed in room`, {
@@ -41,13 +39,11 @@ export const registerCodeHandlers = (io, socket) => {
       const validRoomId = validators.validateRoomId(roomId);
       const validLanguage = validators.validateLanguage(language);
 
-      // Update room state
       const room = roomService.getRoom(validRoomId);
       if (room) {
         room.language = validLanguage;
       }
 
-      // Broadcast to all users in the room
       io.to(validRoomId).emit("languageUpdate", validLanguage);
 
       logger.info(`Language changed in room`, {
@@ -113,7 +109,6 @@ export const registerCodeHandlers = (io, socket) => {
         },
       };
 
-      // Emit to all users in the room, not just the requester
       io.to(roomId).emit("codeResponse", errorResponse);
     }
   };
@@ -132,8 +127,52 @@ export const registerCodeHandlers = (io, socket) => {
     }
   };
 
+  const cursorChange = ({ roomId, userName, position }) => {
+    try {
+      const validRoomId = validators.validateRoomId(roomId);
+      const validUserName = validators.validateUserName(userName);
+
+      logger.info(
+        `[Backend] Received cursorChange from socket ${
+          socket.id
+        }: userName="${validUserName}", position=${JSON.stringify(
+          position
+        )}, broadcasting to room "${validRoomId}"`
+      );
+
+      socket.to(validRoomId).emit("cursorUpdate", {
+        userName: validUserName,
+        position,
+      });
+    } catch (error) {
+      logger.error(`Error handling cursor change`, {
+        socketId: socket.id,
+        error: error.message,
+      });
+    }
+  };
+
+  const selectionChange = ({ roomId, userName, selection }) => {
+    try {
+      const validRoomId = validators.validateRoomId(roomId);
+      const validUserName = validators.validateUserName(userName);
+
+      socket.to(validRoomId).emit("selectionUpdate", {
+        userName: validUserName,
+        selection,
+      });
+    } catch (error) {
+      logger.error(`Error handling selection change`, {
+        socketId: socket.id,
+        error: error.message,
+      });
+    }
+  };
+
   socket.on("codeChange", codeChange);
   socket.on("languageChange", languageChange);
   socket.on("compileCode", compileCode);
   socket.on("typing", typing);
+  socket.on("cursorChange", cursorChange);
+  socket.on("selectionChange", selectionChange);
 };
