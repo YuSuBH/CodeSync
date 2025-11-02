@@ -5,7 +5,7 @@ import { useSocket } from "./hooks/useSocket";
 import { useRoom } from "./hooks/useRoom";
 import { useBeforeUnload } from "./hooks/useBeforeUnload";
 import { useRemoteCursors } from "./hooks/useRemoteCursors";
-import JoinRoom from "./components/JoinRoom";
+import LandingPage from "./components/LandingPage";
 import CodeRoom from "./components/CodeRoom";
 import { DEFAULT_CODE, DEFAULT_LANGUAGE } from "./constants/languages";
 
@@ -242,7 +242,7 @@ const App = () => {
     return (
       <>
         <Toaster position="top-right" />
-        <JoinRoom onJoin={handleJoin} isConnected={isConnected} />
+        <LandingPage onGetStarted={handleJoin} isConnected={isConnected} />
       </>
     );
   }

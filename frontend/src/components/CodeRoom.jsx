@@ -50,7 +50,7 @@ const CodeRoom = ({
   return (
     <div className="h-screen overflow-hidden flex flex-col">
       <div className="bg-slate-800 px-4 py-2 flex items-center justify-between">
-        <h1 className="text-white text-lg font-semibold">CollabCode</h1>
+        <h1 className="text-white text-lg font-semibold">CodeSync</h1>
         <ConnectionStatus isConnected={isConnected} />
       </div>
       <PanelGroup direction="horizontal" className="flex-1">
