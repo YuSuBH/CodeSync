@@ -8,7 +8,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node backend/index.js",
     "dev": "node --watch backend/index.js",
-    "build": "npm install && cd frontend && npm install && npm run build"
+    "install:frontend": "cd frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm install && npm run install:frontend && npm run build:frontend"
   },
   "keywords": [],
   "author": "",
